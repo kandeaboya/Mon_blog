@@ -1,0 +1,357 @@
+ *{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+html{
+    --var-bg-color: #7743e9;
+    --var-second-color:#6e51cf;
+    --var-text-color: #fff;
+    --var-bg-dark-light: #f0f4ff;
+    --var-text-color:#333;
+    
+
+}
+body{
+    background: var(--var-bg-dark-light);
+}
+header{
+    display: flex;
+    gap: 2rem;
+    background-color:  white;
+    padding: 10px;
+    box-shadow: -1px -11px 19px 0px;
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 999;
+    
+}
+.header-element{
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.header-element.nav-links-top ul, li, a{
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+    text-decoration: none;
+    color: black;
+}
+header a:hover{
+    color: var(--var-second-color);
+}
+.header-element.btn-top a{
+    background: var(--var-bg-color);
+    padding: 10px;
+    color: white;
+    border-radius: 10px;
+}
+.header-element.btn-top a:hover{
+    background: white;
+    padding: 10px;
+    color: var(--var-bg-color);
+    border: 1px solid var(--var-bg-color);
+}
+.header-element.titre{
+    text-transform: uppercase;
+    font-weight: 800;
+    font-size: 10px;
+}
+main{
+    display: flex;
+    flex-direction: column;
+    margin: 40px;
+    gap: 2rem;
+}
+.bienvenue{
+    display: flex;
+    background-color: var(--var-bg-color);
+    color: white;
+    padding: 20px;
+    margin: 20px;
+}
+.part-bienvenue{
+    flex: 1;
+}
+.part-bienvenue h1{
+    font-weight: 800;
+    font-size: 50px;
+}
+.part-bienvenue.text-bienvenue{
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+.part-bienvenue.image {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+}
+.part-bienvenue.image img{
+    width: 350px;
+    height: 350px;
+}
+.part-bienvenue.text-bienvenue a{
+    background: white;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10px;
+    box-shadow: 2px 6px 0px 0px;
+}
+.part-bienvenue.text-bienvenue a:hover{
+    background-color: black;
+    color: white;
+    border: 1px solid white;
+    box-shadow: 2px 6px 0px 0px yellow;
+}
+.cards-content{
+    display: flex;
+    gap: 2rem;
+    flex-direction: column;
+    
+}
+.cards-content h1{
+    text-align: center;
+    text-decoration: underline;
+    font-weight: 800;
+}
+.cards{
+    display: flex;
+    gap: 2.3rem;
+    
+    
+}
+
+.card{
+    flex: 1;
+    background: white;
+    padding: 20px;
+    display: flex;
+    gap: 1rem;
+    flex-direction: column;
+    box-shadow: 2px 1px 3px 0px;
+    transition: 0.1s ;
+    border-radius: 1rem;
+    
+}
+.card:hover{
+    color: white;
+    background-color: var(--var-bg-color);
+    transform: scale(1.1);
+    transform: translateX(10deg);
+    transform: rotate(1deg);
+    
+}
+.card .icone-service{
+    position: relative;
+    top: -2rem;
+    background-color: #d3c9f3;
+    width: 25%;
+    padding: 15px;
+    border-radius: 5px;
+
+}
+.card h4{
+    font-size: 20px;
+}
+.album{
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+.album h1{
+    text-align: center;
+    text-decoration: underline;
+}
+.photo{
+    display: flex;
+    gap: 2rem;
+    flex-direction: column;
+}
+.photo{
+    display: flex;
+    gap: 2rem;
+}
+.lign1{
+    display: flex;
+    flex: 1;
+    gap: 2rem;
+
+
+}
+.card-photo{
+    flex: 1;
+    padding: 10px;
+    background: white;
+    box-shadow: 2px 1px 4px 0px;
+    border-radius: 30px;
+    
+}
+.card-photo:hover{
+    transform: scale(1.1);
+    transform: translateX(10deg);
+    transform: rotate(1deg);
+    
+}
+.card-photo img{
+    width: 100%;
+    height: 100%;
+}
+.img{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+ .icone-photo{
+    position: relative;
+    top: -2rem;
+    background-color: yellow;
+    width: 25%;
+    padding: 15px;
+    border-radius: 5px;
+
+}
+
+footer{
+    display: flex;
+    flex-direction: row;
+    background: #6e51cf;
+    
+    padding: 30px;
+    gap: 4rem;
+    color: white;
+}
+.footer{
+    flex: 1;
+    
+}
+footer h3{
+    color: black;
+    text-align: center;
+}
+.footer.qui-nous-sommes{
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    text-align: justify;
+}
+.input{
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+input{
+    padding: 10px;
+}
+label{
+    color: black;
+}
+.footer.mail{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.desc{
+    text-align: center;
+    color: var(--var-bg-color);
+    padding: 10px;
+}
+.social-network{
+    display: flex;
+    flex-direction: column;
+    background: #6e51cf;
+    width: 2%;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding: 15px;
+    position: fixed;
+    right: 0;
+    margin-top: 10%;
+    z-index: 900;
+
+}
+footer textarea{
+    padding: 10px;
+}
+footer button{
+    padding: 10px;
+    background: orange;
+    color: white;
+    cursor: pointer;
+    border: none;
+}
+@media(max-width:900px){
+    .part-bienvenue.image{
+        width: 100%;
+    }
+    .bienvenue{
+        display: flex;
+        flex-direction: column;
+    }
+    .cards{
+        display: flex;
+        flex-direction: column;
+    }
+    .lign1{
+        display: flex;
+        flex-direction: column;
+
+    }
+    footer{
+    display: flex;
+    flex-direction: column;
+ 
+}
+header{
+    display: flex;
+    flex-direction: column;
+
+}
+.bienvenue{
+    display: flex;
+    background-color: var(--var-bg-color);
+    color: white;
+    gap: 1rem;
+    margin-top: 10rem;
+
+  
+}
+.part-bienvenue h1{
+    font-size: 20px;
+    color: white;
+}
+.part-bienvenue p{
+    color: var(--var-text-color);
+}
+main{
+    display: flex;
+    flex-direction: column;
+   
+}
+.social-network{
+ 
+    margin-top: 60%;
+    margin-right: 1.4rem;
+  
+
+}
+.header-element.nav-links-top ul, li, a{
+  
+    gap: 0.6rem;
+  
+}
+
+}
+
+
+
+    
+
