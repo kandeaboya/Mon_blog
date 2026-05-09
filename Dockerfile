@@ -1,36 +1,63 @@
-# Image PHP officielle
-FROM php:8.2-apache
+# Dockerfile
+FROM php:8.3-fpm-alpine
 
-# Installer les extensions nécessaires
-RUN apt-get update && apt-get install -y \
+# Installation des dépendances système
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
+    curl \
     libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    zip \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libzip-dev \
     unzip \
     git \
-    curl
+    nodejs \
+    npm
 
-# Activer extensions PHP
-RUN docker-php-ext-install pdo pdo_mysql gd
+# Installation des extensions PHP
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    gd \
+    pdo_mysql \
+    pdo_pgsql \
+    zip \
+    opcache \
+    bcmath \
+    exif
 
-# Activer mod_rewrite (important pour Laravel)
-RUN a2enmod rewrite
+# Installation de Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Définir le dossier de travail
+# Configuration de PHP
+COPY .docker/php/php.ini /usr/local/etc/php/conf.d/app.ini
+
+# Configuration de Nginx
+COPY .docker/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY .docker/nginx/default.conf /etc/nginx/http.d/default.conf
+
+# Configuration Supervisor
+COPY .docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Définition du répertoire de travail
 WORKDIR /var/www/html
 
-# Copier le projet dans le conteneur
+# Copie des fichiers de l'application
 COPY . .
 
-# Installer Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Installation des dépendances Laravel
+RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# Installer les dépendances Laravel
-RUN composer install
+# Installation et build des assets
+RUN npm install && npm run build
 
-# Permissions Laravel
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
 
-# Port Apache
+# Exposition des ports
 EXPOSE 80
+
+# Démarrage du serveur
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
