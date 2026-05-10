@@ -1,18 +1,28 @@
 # Dockerfile pour Laravel - Site statique sans base de données
 FROM php:8.3-fpm-alpine
 
-# Installation des dépendances minimales (pas de DB)
+# Installation des dépendances minimales
 RUN apk add --no-cache \
     nginx \
     curl \
     unzip \
-    git
+    git \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libzip-dev
 
-# Installation des extensions PHP (uniquement nécessaires)
-RUN docker-php-ext-install -j$(nproc) \
+# Installation des extensions PHP nécessaires pour Laravel
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    gd \
+    zip \
     opcache \
     bcmath \
-    exif
+    exif \
+    mbstring \
+    tokenizer \
+    fileinfo
 
 # Installation de Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -22,58 +32,54 @@ WORKDIR /var/www/html
 # Copie des fichiers de l'application
 COPY . .
 
-# Suppression de toutes les dépendances de base de données
-RUN composer remove laravel/pail --no-update 2>/dev/null || true && \
-    composer remove doctrine/dbal --no-update 2>/dev/null || true
-
-# Installation des dépendances PHP en ignorant tout ce qui concerne les DB
+# Installation des dépendances PHP (sans DB)
 RUN composer install --no-interaction --optimize-autoloader --no-dev \
     --ignore-platform-req=ext-pdo \
     --ignore-platform-req=ext-pdo_mysql \
     --ignore-platform-req=ext-pdo_pgsql \
     --ignore-platform-req=ext-pdo_sqlite \
     --ignore-platform-req=ext-pgsql \
-    --ignore-platform-req=ext-mysql
+    --ignore-platform-req=ext-mysql 2>&1 || true
 
-# Création du fichier .env SANS base de données
-RUN echo "APP_NAME=MonBlog" > .env && \
-    echo "APP_ENV=production" >> .env && \
-    echo "APP_DEBUG=false" >> .env && \
-    echo "APP_URL=https://mon-blog-jm2x.onrender.com" >> .env && \
-    echo "ASSET_URL=https://mon-blog-jm2x.onrender.com" >> .env && \
-    echo "" >> .env && \
-    echo "LOG_CHANNEL=stack" >> .env && \
-    echo "LOG_LEVEL=error" >> .env && \
-    echo "" >> .env && \
-    echo "SESSION_DRIVER=file" >> .env && \
-    echo "SESSION_LIFETIME=120" >> .env && \
-    echo "" >> .env && \
-    echo "CACHE_STORE=file" >> .env && \
-    echo "VIEW_COMPILED_PATH=/tmp/views" >> .env
+# Création du fichier .env
+RUN cat > .env << 'EOF'
+APP_NAME=MonBlog
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://mon-blog-jm2x.onrender.com
+ASSET_URL=https://mon-blog-jm2x.onrender.com
 
-# Optimisations Laravel sans DB
-RUN php artisan optimize:clear || true && \
-    php artisan view:cache || true && \
-    php artisan config:cache || true && \
-    php artisan route:cache || true
+LOG_CHANNEL=stack
+LOG_LEVEL=error
 
-# Configuration des permissions CORRECTE pour CSS
+SESSION_DRIVER=file
+SESSION_LIFETIME=120
+
+CACHE_STORE=file
+VIEW_COMPILED_PATH=/tmp/views
+EOF
+
+# Optimisations Laravel
+RUN php artisan optimize:clear 2>/dev/null || true && \
+    php artisan view:cache 2>/dev/null || true && \
+    php artisan config:cache 2>/dev/null || true
+
+# Configuration des permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache \
     && chmod -R 755 /var/www/html/public
 
-# Forcer les bonnes permissions pour le CSS
-RUN if [ -f "/var/www/html/public/css/style.css" ]; then \
-        chmod 644 /var/www/html/public/css/style.css && \
-        echo "✅ CSS permissions fixées"; \
-    else \
-        echo "⚠️ Pas de fichier style.css trouvé"; \
+# Vérification et création du CSS si nécessaire
+RUN if [ ! -f "/var/www/html/public/css/style.css" ]; then \
         mkdir -p /var/www/html/public/css && \
-        echo "/* CSS par défaut */ body { background: #f0f4ff; }" > /var/www/html/public/css/style.css; \
+        echo "/* CSS par défaut */ body { background: #f0f4ff; font-family: Arial; }" > /var/www/html/public/css/style.css; \
+    else \
+        chmod 644 /var/www/html/public/css/style.css; \
+        echo "✅ CSS existant trouvé"; \
     fi
 
-# Configuration Nginx ultra simple
+# Configuration Nginx
 RUN cat > /etc/nginx/http.d/default.conf << 'EOF'
 server {
     listen 80;
@@ -81,23 +87,13 @@ server {
     root /var/www/html/public;
     index index.php;
 
-    # Logs
     access_log /dev/stdout;
     error_log /dev/stderr;
 
-    # Fichiers statiques (CSS, JS, images)
-    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        try_files $uri =404;
-    }
-
-    # Redirection principale
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
-    # PHP
     location ~ \.php$ {
         fastcgi_pass 127.0.0.1:9000;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
@@ -108,7 +104,7 @@ server {
 }
 EOF
 
-# Script de démarrage avec vérification CSS
+# Script de démarrage
 RUN cat > /docker-entrypoint.sh << 'EOF'
 #!/bin/sh
 set -e
@@ -117,32 +113,11 @@ echo "========================================="
 echo "🚀 Démarrage de MonBlog"
 echo "========================================="
 
-# Vérification CSS
-echo ""
-echo "📁 Vérification des fichiers CSS :"
 if [ -f "/var/www/html/public/css/style.css" ]; then
-    echo "✅ CSS trouvé : /var/www/html/public/css/style.css"
-    echo "📄 Taille : $(wc -c < /var/www/html/public/css/style.css) bytes"
+    echo "✅ CSS chargé"
 else
-    echo "❌ CSS non trouvé !"
-    echo "Contenu de public/ :"
-    ls -la /var/www/html/public/
+    echo "⚠️ CSS non trouvé"
 fi
-
-# Vérification des views
-echo ""
-echo "📁 Vérification des layouts :"
-if [ -f "/var/www/html/resources/views/layouts/master.blade.php" ]; then
-    echo "✅ master.blade.php trouvé"
-    grep -q "css/style.css" /var/www/html/resources/views/layouts/master.blade.php && \
-        echo "✅ Lien CSS présent dans master.blade.php" || \
-        echo "⚠️ Lien CSS absent de master.blade.php"
-fi
-
-echo ""
-echo "========================================="
-echo "✅ Démarrage des services"
-echo "========================================="
 
 php-fpm -D
 nginx -g "daemon off;"
