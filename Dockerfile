@@ -1,24 +1,15 @@
-# Dockerfile pour Laravel sans base de données - Version CSS fonctionnelle
+# Dockerfile pour Laravel - Site statique sans base de données
 FROM php:8.3-fpm-alpine
 
-# Installation des dépendances minimales
+# Installation des dépendances minimales (pas de DB)
 RUN apk add --no-cache \
     nginx \
     curl \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    libzip-dev \
     unzip \
-    git \
-    nodejs \
-    npm
+    git
 
-# Installation des extensions PHP
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) \
-    gd \
-    zip \
+# Installation des extensions PHP (uniquement nécessaires)
+RUN docker-php-ext-install -j$(nproc) \
     opcache \
     bcmath \
     exif
@@ -31,20 +22,25 @@ WORKDIR /var/www/html
 # Copie des fichiers de l'application
 COPY . .
 
-# Installation des dépendances PHP (sans base de données)
+# Suppression de toutes les dépendances de base de données
+RUN composer remove laravel/pail --no-update 2>/dev/null || true && \
+    composer remove doctrine/dbal --no-update 2>/dev/null || true
+
+# Installation des dépendances PHP en ignorant tout ce qui concerne les DB
 RUN composer install --no-interaction --optimize-autoloader --no-dev \
+    --ignore-platform-req=ext-pdo \
     --ignore-platform-req=ext-pdo_mysql \
     --ignore-platform-req=ext-pdo_pgsql \
-    --ignore-platform-req=ext-pdo_sqlite
+    --ignore-platform-req=ext-pdo_sqlite \
+    --ignore-platform-req=ext-pgsql \
+    --ignore-platform-req=ext-mysql
 
-# Installation et compilation des assets CSS/JS
-RUN npm install && npm run build || true
-
-# Création du fichier .env
-RUN echo "APP_NAME=Laravel" > .env && \
+# Création du fichier .env SANS base de données
+RUN echo "APP_NAME=MonBlog" > .env && \
     echo "APP_ENV=production" >> .env && \
     echo "APP_DEBUG=false" >> .env && \
-    echo "APP_URL=http://localhost" >> .env && \
+    echo "APP_URL=https://mon-blog-jm2x.onrender.com" >> .env && \
+    echo "ASSET_URL=https://mon-blog-jm2x.onrender.com" >> .env && \
     echo "" >> .env && \
     echo "LOG_CHANNEL=stack" >> .env && \
     echo "LOG_LEVEL=error" >> .env && \
@@ -53,104 +49,106 @@ RUN echo "APP_NAME=Laravel" > .env && \
     echo "SESSION_LIFETIME=120" >> .env && \
     echo "" >> .env && \
     echo "CACHE_STORE=file" >> .env && \
-    echo "" >> .env && \
-    echo "QUEUE_CONNECTION=sync" >> .env && \
-    echo "" >> .env && \
-    echo "ASSET_URL=" >> .env
+    echo "VIEW_COMPILED_PATH=/tmp/views" >> .env
 
-# Optimisations Laravel
-RUN php artisan storage:link || true
-RUN php artisan optimize:clear
-RUN php artisan view:cache
-RUN php artisan config:cache
-RUN php artisan route:cache
+# Optimisations Laravel sans DB
+RUN php artisan optimize:clear || true && \
+    php artisan view:cache || true && \
+    php artisan config:cache || true && \
+    php artisan route:cache || true
 
-# Correction des permissions
+# Configuration des permissions CORRECTE pour CSS
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 /var/www/html/storage \
-    && chmod -R 775 /var/www/html/bootstrap/cache \
+    && chmod -R 755 /var/www/html/storage \
+    && chmod -R 755 /var/www/html/bootstrap/cache \
     && chmod -R 755 /var/www/html/public
 
-# Configuration Nginx optimisée pour les CSS et assets statiques
-RUN mkdir -p /etc/nginx/http.d/ && \
-    echo 'server { \
-    listen 80; \
-    server_name _; \
-    root /var/www/html/public; \
-    index index.php; \
-    \
-    # Gestion des fichiers statiques (CSS, JS, images) \
-    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot|map)$ { \
-        expires 1y; \
-        add_header Cache-Control "public, immutable"; \
-        try_files $uri =404; \
-        access_log off; \
-        log_not_found off; \
-    } \
-    \
-    # Gestion spécifique des fichiers CSS \
-    location ~ \.css$ { \
-        expires 1y; \
-        add_header Content-Type text/css; \
-        add_header Cache-Control "public, immutable"; \
-        try_files $uri =404; \
-    } \
-    \
-    # Gestion spécifique des fichiers JS \
-    location ~ \.js$ { \
-        expires 1y; \
-        add_header Content-Type application/javascript; \
-        add_header Cache-Control "public, immutable"; \
-        try_files $uri =404; \
-    } \
-    \
-    location / { \
-        try_files $uri $uri/ /index.php?$query_string; \
-    } \
-    \
-    location ~ \.php$ { \
-        fastcgi_pass 127.0.0.1:9000; \
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name; \
-        fastcgi_param APP_ENV production; \
-        fastcgi_param APP_DEBUG false; \
-        include fastcgi_params; \
-    } \
-    \
-    location ~ /\.(?!well-known).* { \
-        deny all; \
-    } \
-}' > /etc/nginx/http.d/default.conf
-
-# Script de démarrage avec vérification des assets
-RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
-    echo 'set -e' >> /docker-entrypoint.sh && \
-    echo '' >> /docker-entrypoint.sh && \
-    echo '# Vérification des dossiers CSS' >> /docker-entrypoint.sh && \
-    echo 'if [ ! -d "/var/www/html/public/css" ] && [ ! -d "/var/www/html/public/build" ]; then' >> /docker-entrypoint.sh && \
-    echo '    echo "⚠️  Aucun dossier CSS trouvé. Création..."' >> /docker-entrypoint.sh && \
-    echo '    mkdir -p /var/www/html/public/css' >> /docker-entrypoint.sh && \
-    echo '    echo "/* CSS généré automatiquement */" > /var/www/html/public/css/app.css' >> /docker-entrypoint.sh && \
-    echo 'fi' >> /docker-entrypoint.sh && \
-    echo '' >> /docker-entrypoint.sh && \
-    echo '# Afficher les dossiers d\'assets' >> /docker-entrypoint.sh && \
-    echo 'echo "📁 Dossiers d\'assets disponibles :"' >> /docker-entrypoint.sh && \
-    echo 'ls -la /var/www/html/public/ | grep -E "css|js|build|assets" || echo "   Aucun dossier d\'assets trouvé"' >> /docker-entrypoint.sh && \
-    echo '' >> /docker-entrypoint.sh && \
-    echo '# Démarrer les services' >> /docker-entrypoint.sh && \
-    echo 'php-fpm -D' >> /docker-entrypoint.sh && \
-    echo 'nginx -g "daemon off;"' >> /docker-entrypoint.sh && \
-    chmod +x /docker-entrypoint.sh
-
-# Copie manuelle des assets si nécessaire
-RUN if [ -d "resources/css" ]; then \
-        mkdir -p public/css && cp -r resources/css/* public/css/ 2>/dev/null || true; \
-    fi && \
-    if [ -d "resources/js" ]; then \
-        mkdir -p public/js && cp -r resources/js/* public/js/ 2>/dev/null || true; \
-    fi && \
-    if [ -d "resources/sass" ]; then \
-        mkdir -p public/css && cp -r resources/sass/* public/css/ 2>/dev/null || true; \
+# Forcer les bonnes permissions pour le CSS
+RUN if [ -f "/var/www/html/public/css/style.css" ]; then \
+        chmod 644 /var/www/html/public/css/style.css && \
+        echo "✅ CSS permissions fixées"; \
+    else \
+        echo "⚠️ Pas de fichier style.css trouvé"; \
+        mkdir -p /var/www/html/public/css && \
+        echo "/* CSS par défaut */ body { background: #f0f4ff; }" > /var/www/html/public/css/style.css; \
     fi
+
+# Configuration Nginx ultra simple
+RUN cat > /etc/nginx/http.d/default.conf << 'EOF'
+server {
+    listen 80;
+    server_name _;
+    root /var/www/html/public;
+    index index.php;
+
+    # Logs
+    access_log /dev/stdout;
+    error_log /dev/stderr;
+
+    # Fichiers statiques (CSS, JS, images)
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Redirection principale
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP
+    location ~ \.php$ {
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param APP_ENV production;
+        fastcgi_param APP_DEBUG false;
+        include fastcgi_params;
+    }
+}
+EOF
+
+# Script de démarrage avec vérification CSS
+RUN cat > /docker-entrypoint.sh << 'EOF'
+#!/bin/sh
+set -e
+
+echo "========================================="
+echo "🚀 Démarrage de MonBlog"
+echo "========================================="
+
+# Vérification CSS
+echo ""
+echo "📁 Vérification des fichiers CSS :"
+if [ -f "/var/www/html/public/css/style.css" ]; then
+    echo "✅ CSS trouvé : /var/www/html/public/css/style.css"
+    echo "📄 Taille : $(wc -c < /var/www/html/public/css/style.css) bytes"
+else
+    echo "❌ CSS non trouvé !"
+    echo "Contenu de public/ :"
+    ls -la /var/www/html/public/
+fi
+
+# Vérification des views
+echo ""
+echo "📁 Vérification des layouts :"
+if [ -f "/var/www/html/resources/views/layouts/master.blade.php" ]; then
+    echo "✅ master.blade.php trouvé"
+    grep -q "css/style.css" /var/www/html/resources/views/layouts/master.blade.php && \
+        echo "✅ Lien CSS présent dans master.blade.php" || \
+        echo "⚠️ Lien CSS absent de master.blade.php"
+fi
+
+echo ""
+echo "========================================="
+echo "✅ Démarrage des services"
+echo "========================================="
+
+php-fpm -D
+nginx -g "daemon off;"
+EOF
+
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
 
