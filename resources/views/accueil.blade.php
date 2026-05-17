@@ -67,7 +67,7 @@
                                 <img src="image/mhd1.jpg" alt="">
                             </div>
                             <div class="desc">
-                                Lorem ipsum dolor sit, amet consectetur adipisicing elit. Accusantium, modi.
+                                Lorem ipsum dsolor sit, amet consectetur adipisicing elit. Accusantium, modi.
                             </div>
                         </div>
                         <div class="card-photo">
